@@ -12,10 +12,13 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.support.SimpleFlow;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.partition.PartitionHandler;
+import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.core.step.tasklet.TaskletStep;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
@@ -96,21 +99,55 @@ public class ParallelConfiguration {
     }
 
 
+    //TODO: Partition + Parallel 적용
+    @Bean(JOB_NAME + "_userLevelUpStep.manager")
+    public Step userLevelUpManagerStep() throws Exception {
+        return this.stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep.manager")
+                .partitioner(JOB_NAME + "_userLevelUpStep",new UserLevelUpPartitioner(userRepository))
+                .step(userLevelUpStep())
+                .partitionHandler(taskExecutorPartitionHandler())
+                .build();
+    }
+
+    //TODO: Partition + Parallel 적용
+    @Bean(JOB_NAME + "_taskExecutorPartitionHandler")
+    public PartitionHandler taskExecutorPartitionHandler() throws Exception {
+        TaskExecutorPartitionHandler handler = new TaskExecutorPartitionHandler();
+
+        handler.setStep(userLevelUpStep());
+        handler.setTaskExecutor(this.taskExecutor);
+        handler.setGridSize(8); // UserLevelUpPartitioner - partition(int size) 매개 변수  : 생성할 slave step의 개수
+
+        return handler;
+    }
+
+
 
     // init user된 회원의 경우 등급이 모두 normal이기 때문에 등급 보정이 필요
     @Bean(JOB_NAME + "_userLevelUpStep")
     public Step userLevelUpStep() throws Exception {
         return this.stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep")
                 .<User,User>chunk(CHUNK)
-                .reader(itemReader())
+                .reader(itemReader(null, null))
                 .processor(itemProcessor())
                 .writer(itemWriter())
                 .build();
     }
 
-    private ItemReader<? extends User> itemReader() throws Exception {
+    //TODO: Partition + Parallel 적용
+    @Bean(JOB_NAME + "_userItemReader")
+    @StepScope
+    public JpaPagingItemReader<? extends User> itemReader(
+            @Value("#{stepExecutionContext[minId]}") Long minId,
+            @Value("#{stepExecutionContext[maxId]}") Long maxId) throws Exception {
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("minId",minId);
+        parameters.put("maxId",maxId);
+
         JpaPagingItemReader<User> itemReader = new JpaPagingItemReaderBuilder<User>()
-                .queryString("select u from User u")
+                .queryString("select u from User u where u.id between :minId and :maxId")
+                .parameterValues(parameters)
                 .entityManagerFactory(entityManagerFactory)
                 .pageSize(CHUNK)
                 .name(JOB_NAME + "_userItemReader")
@@ -139,14 +176,14 @@ public class ParallelConfiguration {
     }
 
 
-    //TODO: Parallel 적용
+    //TODO: Partition + Parallel 적용
     @Bean(JOB_NAME + "_splitFlow")
     @JobScope
     public Flow splitFlow(@Value("#{jobParameters[date]}") String date,
                           @Value("#{jobParameters[path]}") String path
     ) throws Exception {
         Flow userLevelUpFlow = new FlowBuilder<SimpleFlow>(JOB_NAME + "_userLevelUpFlow")
-                .start(userLevelUpStep())
+                .start(userLevelUpManagerStep())
                 .build();
 
         return new FlowBuilder<SimpleFlow>(JOB_NAME + "_splitFlow")
