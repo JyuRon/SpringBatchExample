@@ -17,7 +17,7 @@ import java.util.List;
 public class SaveUserTasklet implements Tasklet {
 
     private final UserRepository userRepository;
-    private final int SIZE = 100;
+    private final int SIZE = 10_000;
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
         List<User> users = createUsers();
