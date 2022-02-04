@@ -1,11 +1,13 @@
 package com.example.part4;
 
+import com.example.part5.Orders;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Objects;
 
 @Getter
@@ -17,19 +19,21 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String username;
+    private String ussername;
 
     @Enumerated(EnumType.STRING)
     private Level level = Level.NORMAL;
 
-    private int totalAmount;
+    @OneToMany(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER) // 로딩 시 orders도 불러옴
+    @JoinColumn(name="user_id")
+    private List<Orders> orders;
 
     private LocalDate updatedDate;
 
     @Builder
-    public User(String username, int totalAmount) {
-        this.username = username;
-        this.totalAmount = totalAmount;
+    private User(String username, List<Orders> orders){
+        this.ussername = username;
+        this.orders = orders;
     }
 
     public boolean avaliableLevelUp() {
@@ -45,6 +49,11 @@ public class User {
         return nextLevel;
     }
 
+    private int getTotalAmount() {
+        return this.orders.stream()
+                .mapToInt(Orders::getAmount)
+                .sum();
+    }
 
     public enum Level{
         VIP(500_000,null),
