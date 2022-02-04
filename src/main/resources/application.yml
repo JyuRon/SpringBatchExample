@@ -7,3 +7,12 @@ spring:
     job:
       names: ${job.name:NONE}
     initialize-schema:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        ddl-auto: validate
+        format_sql: true
+  datasource:
+    driver-class-name: org.h2.Driver
+    data: classpath:person.sql
