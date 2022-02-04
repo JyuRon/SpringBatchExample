@@ -10,8 +10,6 @@ import java.util.Objects;
 @Getter
 @NoArgsConstructor
 @Entity
-@Table(name = "person")
-@EqualsAndHashCode
 public class Person {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
