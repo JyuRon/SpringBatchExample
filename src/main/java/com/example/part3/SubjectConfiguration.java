@@ -114,8 +114,8 @@ public class SubjectConfiguration {
             throw new NotFoundNameException();
         };
 
-        CompositeItemProcessor<Person, Person> itemProcessor = new CompositeItemProcessorBuilder()
-                .delegates(validationProcessor, duplicateValidationProcessor)
+        CompositeItemProcessor<Person, Person> itemProcessor = new CompositeItemProcessorBuilder<Person,Person>()
+                .delegates(new PersonValidationRetryProcessor(), validationProcessor, duplicateValidationProcessor)
                 .build();
 
         itemProcessor.afterPropertiesSet();
