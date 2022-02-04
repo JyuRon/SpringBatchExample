@@ -1,0 +1,9 @@
+# ??? ?? spring-batch-job-names? ???? args ??? ??? ???
+# --spring.batch.job.name=helloJob  // ?
+# --job.name=helloJob // ?
+
+spring:
+  batch:
+    job:
+      names: ${job.name:NONE}
+    initialize-schema:
