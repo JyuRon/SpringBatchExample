@@ -10,7 +10,7 @@ spring:
   datasource:
     hikari:
       # rewriteBatchedStatements : mysql 에서 bulk option을 사용하기 위함
-      jdbc-url: jdbc:mysql://127.0.0.1:3306/house?characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
+      jdbc-url: jdbc:mysql://127.0.0.1:3306/spring_batch?characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
       driver-class-name: com.mysql.cj.jdbc.Driver
       username: root
       password: 1234

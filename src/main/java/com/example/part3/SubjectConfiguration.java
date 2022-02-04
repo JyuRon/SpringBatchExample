@@ -2,6 +2,7 @@ package com.example.part3;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.SkipListener;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
@@ -60,11 +61,17 @@ public class SubjectConfiguration {
         return this.stepBuilderFactory.get("subjectStep")
                 .<Person,Person>chunk(10)
                 .reader(csvFileItemReader())
-                .processor(new DuplicateValidationProcessor<>(Person::getName, Boolean.parseBoolean(value)))
+                .processor(itemProcessor(value))
                 .writer(compositeItemWriter())
                 .listener(new SavePersonListener.SavePersonStepExecutionListener())
+                .faultTolerant()
+//                .listener(new SkipListener())
+                .skip(NotFoundNameException.class)
+                .skipLimit(3)
                 .build();
     }
+
+
 
     private ItemReader<? extends Person> csvFileItemReader() throws Exception {
 
@@ -95,6 +102,26 @@ public class SubjectConfiguration {
 
     }
 
+    private ItemProcessor<? super Person, ? extends Person> itemProcessor(String allowDuplicate) throws Exception {
+        DuplicateValidationProcessor<Person> duplicateValidationProcessor =
+                new DuplicateValidationProcessor<>(Person::getName, Boolean.parseBoolean(allowDuplicate));
+
+        ItemProcessor<Person,Person> validationProcessor = item -> {
+            if(item.isNotEmptyName()){
+                return item;
+            }
+
+            throw new NotFoundNameException();
+        };
+
+        CompositeItemProcessor<Person, Person> itemProcessor = new CompositeItemProcessorBuilder()
+                .delegates(validationProcessor, duplicateValidationProcessor)
+                .build();
+
+        itemProcessor.afterPropertiesSet();
+
+        return itemProcessor;
+    }
 
     private ItemWriter<? super Person> compositeItemWriter() throws Exception {
 
