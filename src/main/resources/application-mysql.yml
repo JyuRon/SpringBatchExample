@@ -1,9 +1,25 @@
+# 아래의 설정 spring-batch-job-names를 설정하면 args 설정도 간단히 바뀐다
+# --spring.batch.job.name=helloJob  // 전
+# --job.name=helloJob // 후
+
 spring:
+  batch:
+    job:
+      names: ${job.name:NONE}
+    initialize-schema:
   datasource:
     hikari:
-      jdbc-url: jdbc:mysql://127.0.0.1:3306/spring_batch?characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
+      # rewriteBatchedStatements : mysql 에서 bulk option을 사용하기 위함
+      jdbc-url: jdbc:mysql://127.0.0.1:3306/house?characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
       driver-class-name: com.mysql.cj.jdbc.Driver
       username: root
       password: 1234
+  datasorce:
+    driver-class-name: org.h2.Driver
+    data: classpath:person.sql
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
 batch:
   initialize-schema: never
