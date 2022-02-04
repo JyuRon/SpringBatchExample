@@ -49,6 +49,8 @@ public class SubjectConfiguration {
         return this.jobBuilderFactory.get("subjectJob")
                 .incrementer(new RunIdIncrementer())
                 .start(this.subjectStep(null))
+                .listener(new SavePersonListener.SavePersonJobExecutionListener())
+                .listener(new SavePersonListener.SavePersonAnnotationJobExecution())
                 .build();
     }
 
@@ -60,6 +62,7 @@ public class SubjectConfiguration {
                 .reader(csvFileItemReader())
                 .processor(new DuplicateValidationProcessor<>(Person::getName, Boolean.parseBoolean(value)))
                 .writer(compositeItemWriter())
+                .listener(new SavePersonListener.SavePersonStepExecutionListener())
                 .build();
     }
 
