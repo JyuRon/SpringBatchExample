@@ -16,6 +16,8 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.partition.PartitionHandler;
 import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
+import org.springframework.batch.integration.async.AsyncItemProcessor;
+import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -41,6 +43,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 @Configuration
 @Slf4j
@@ -75,7 +78,7 @@ public class PartitionConfiguration {
             return this.jobBuilderFactory.get(JOB_NAME)
                     .incrementer(new RunIdIncrementer())
                     .start(this.saveUserStep())
-                    .next(this.userLevelUpManagerStep())   //TODO: Partition 적용
+                    .next(this.userLevelUpManagerStep())   //TODO: Partition + Async 적용
                     .listener(new LevelUpJobExecutionListener(userRepository))
                     .next(new JobParametersDecide("date"))  // decide함수가 상황에 맞게 return을 한다.
                     .on(JobParametersDecide.CONTINUE.getName()) // decide함수가 return을 한 값이 CONTINUE인지를 검사한다.
@@ -94,7 +97,7 @@ public class PartitionConfiguration {
                 .build();
     }
 
-    //TODO: Partition 적용
+    //TODO: Partition + Async 적용
     @Bean(JOB_NAME + "_userLevelUpStep.manager")
     public Step userLevelUpManagerStep() throws Exception {
         return this.stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep.manager")
@@ -104,7 +107,7 @@ public class PartitionConfiguration {
                 .build();
     }
 
-    //TODO: Partition 적용
+    //TODO: Partition + Async 적용
     @Bean(JOB_NAME + "_taskExecutorPartitionHandler")
     public PartitionHandler taskExecutorPartitionHandler() throws Exception {
         TaskExecutorPartitionHandler handler = new TaskExecutorPartitionHandler();
@@ -116,19 +119,19 @@ public class PartitionConfiguration {
         return handler;
     }
 
-    //TODO: Partition 적용
+    //TODO: Partition + Async 적용
     // init user된 회원의 경우 등급이 모두 normal이기 때문에 등급 보정이 필요
     @Bean(JOB_NAME + "_userLevelUpStep")
     public Step userLevelUpStep() throws Exception {
         return this.stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep")
-                .<User,User>chunk(CHUNK)
+                .<User, Future<User>>chunk(CHUNK)
                 .reader(itemReader(null, null))
                 .processor(itemProcessor())
                 .writer(itemWriter())
                 .build();
     }
 
-    //TODO: Partition 적용
+    //TODO: Partition + Async 적용
     @Bean
     @StepScope
     public JpaPagingItemReader<? extends User> itemReader(
@@ -152,21 +155,35 @@ public class PartitionConfiguration {
 
     }
 
-    private ItemProcessor<? super User,? extends User> itemProcessor() {
-        return user->{
-            if(user.avaliableLevelUp()){
+    //TODO: Partition + Async 적용
+    private AsyncItemProcessor<User, User> itemProcessor() {
+
+        ItemProcessor<User, User> itemProcessor = user -> {
+            if (user.avaliableLevelUp()) {
                 return user;
             }
             return null;
         };
+
+        AsyncItemProcessor<User, User> asyncItemProcessor = new AsyncItemProcessor<>();
+        ;
+        asyncItemProcessor.setDelegate(itemProcessor);
+        asyncItemProcessor.setTaskExecutor(this.taskExecutor);
+
+        return asyncItemProcessor;
     }
 
-
-    private ItemWriter<? super User> itemWriter() {
-        return users-> users.forEach(x->{
+    //TODO: Partition + Async 적용
+    private AsyncItemWriter<User> itemWriter() {
+        ItemWriter<User> itemWriter = users -> users.forEach(x -> {
             x.levelUp();
             userRepository.save(x);
         });
+
+        AsyncItemWriter<User> asyncItemWriter = new AsyncItemWriter<>();
+        asyncItemWriter.setDelegate(itemWriter);
+
+        return asyncItemWriter;
     }
 
 
